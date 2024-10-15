@@ -3,6 +3,8 @@
 
 #include <QObject>
 #include <QTcpServer>
+#include <QFile>
+#include <QDir>
 
 class Server : public QObject {
     Q_OBJECT
@@ -11,7 +13,7 @@ public:
     explicit Server(QObject* parent = nullptr);
     ~Server();
 
-    bool start(int port);
+    bool start(int port, const QString& rootPath);
     void stop();
 
 signals:
@@ -19,9 +21,13 @@ signals:
 
 private slots:
     void newConnection();
+    void readClient();
 
 private:
     QTcpServer* tcpServer;
+    QDir rootDir;
+
+    void serveFile(QTcpSocket* socket, const QString& fileName);
 };
 
 #endif // SERVER_H

@@ -1,36 +1,52 @@
 #include "mainwindow.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QFileDialog>
+#include <QMessageBox>
 #include <QLabel>
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), server(nullptr) {
+
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), server(new Server(this)) {
     QWidget* centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
 
-    QHBoxLayout* controlLayout = new QHBoxLayout();
-    startButton = new QPushButton("Iniciar Servidor", this);
-    stopButton = new QPushButton("Detener Servidor", this);
+    QHBoxLayout* portLayout = new QHBoxLayout();
     portInput = new QLineEdit(this);
-    portInput->setPlaceholderText("Puerto");
+    portInput->setPlaceholderText("Port");
+    portLayout->addWidget(new QLabel("Port:"));
+    portLayout->addWidget(portInput);
 
-    controlLayout->addWidget(new QLabel("Puerto:"));
-    controlLayout->addWidget(portInput);
-    controlLayout->addWidget(startButton);
-    controlLayout->addWidget(stopButton);
+    QHBoxLayout* folderLayout = new QHBoxLayout();
+    folderInput = new QLineEdit(this);
+    folderInput->setPlaceholderText("Server root folder");
+    browseButton = new QPushButton("Browse", this);
+    folderLayout->addWidget(new QLabel("Folder:"));
+    folderLayout->addWidget(folderInput);
+    folderLayout->addWidget(browseButton);
+
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    startButton = new QPushButton("Start Server", this);
+    stopButton = new QPushButton("Stop Server", this);
+    stopButton->setEnabled(false);
+    buttonLayout->addWidget(startButton);
+    buttonLayout->addWidget(stopButton);
 
     logView = new QTextEdit(this);
     logView->setReadOnly(true);
 
-    mainLayout->addLayout(controlLayout);
+    mainLayout->addLayout(portLayout);
+    mainLayout->addLayout(folderLayout);
+    mainLayout->addLayout(buttonLayout);
     mainLayout->addWidget(logView);
 
     connect(startButton, &QPushButton::clicked, this, &MainWindow::startServer);
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopServer);
+    connect(browseButton, &QPushButton::clicked, this, &MainWindow::browseFolder);
+    connect(server, &Server::logMessage, this, &MainWindow::updateLog);
 
-    stopButton->setEnabled(false);
-
+    setWindowTitle("HTTP Server");
     resize(400, 300);
 }
 
@@ -40,39 +56,45 @@ MainWindow::~MainWindow() {
 
 void MainWindow::startServer() {
     int port = portInput->text().toInt();
+    QString rootPath = folderInput->text();
+
     if (port <= 0 || port > 65535) {
-        updateLog("Puerto inválido. Debe estar entre 1 y 65535.");
+        QMessageBox::warning(this, "Invalid Port", "Please enter a valid port number (1-65535).");
         return;
     }
 
-    server = new Server(this);
-    connect(server, &Server::logMessage, this, &MainWindow::updateLog);
+    if (rootPath.isEmpty()) {
+        QMessageBox::warning(this, "Invalid Path", "Please select a server root folder.");
+        return;
+    }
 
-    if (server->start(port)) {
-        updateLog("Servidor iniciado en el puerto " + QString::number(port));
+    if (server->start(port, rootPath)) {
         startButton->setEnabled(false);
         stopButton->setEnabled(true);
         portInput->setEnabled(false);
-    }
-    else {
-        updateLog("No se pudo iniciar el servidor en el puerto " + QString::number(port));
-        delete server;
-        server = nullptr;
+        folderInput->setEnabled(false);
+        browseButton->setEnabled(false);
     }
 }
 
 void MainWindow::stopServer() {
-    if (server) {
-        server->stop();
-        updateLog("Servidor detenido");
-        delete server;
-        server = nullptr;
-    }
+    server->stop();
     startButton->setEnabled(true);
     stopButton->setEnabled(false);
     portInput->setEnabled(true);
+    folderInput->setEnabled(true);
+    browseButton->setEnabled(true);
 }
 
 void MainWindow::updateLog(const QString& message) {
     logView->append(message);
+}
+
+void MainWindow::browseFolder() {
+    QString dir = QFileDialog::getExistingDirectory(this, "Select Server Root Folder",
+        QDir::homePath(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (!dir.isEmpty()) {
+        folderInput->setText(dir);
+    }
 }

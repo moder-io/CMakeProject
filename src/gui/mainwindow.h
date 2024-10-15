@@ -18,11 +18,14 @@ private slots:
     void startServer();
     void stopServer();
     void updateLog(const QString& message);
+    void browseFolder();
 
 private:
     QPushButton* startButton;
     QPushButton* stopButton;
+    QPushButton* browseButton;
     QLineEdit* portInput;
+    QLineEdit* folderInput;
     QTextEdit* logView;
     Server* server;
 };
